@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project CHRONOS: The Murder of Tomorrow | Investigation Terminal</title>
+<style>
+  :root {
+    --ink: #0f2744;
+    --ink-deep: #0a1c33;
+    --grid: #1b3a63;
+    --line: #c9d8ee;
+    --dim: #86a2c9;
+    --paper: #f2f6fc;
+    --fault: #ff7a59;
+    --ok: #8fe8b5;
+    --focus: #ffd166;
+    --head: "Futura", "Century Gothic", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --text: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background-color: var(--ink);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    color: var(--paper);
+    font-family: var(--text);
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+  h1, h2, h3 { font-family: var(--head); font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+  button, input { font: inherit; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 24px 48px; }
+  header.bar {
+    display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: baseline; justify-content: space-between;
+    border-bottom: 2px solid var(--line); padding-bottom: 12px; margin-bottom: 28px;
+  }
+  header.bar h1 { font-size: 1.7rem; }
+  .stats { display: flex; gap: 28px; font-family: var(--mono); font-size: 0.95rem; color: var(--line); }
+  .stats b { color: var(--paper); font-weight: 600; }
+
+  .screen[hidden] { display: none; }
+
+  /* Intro */
+  .intro { max-width: 640px; padding-top: 6vh; }
+  .intro h2 { font-size: 2.6rem; line-height: 1.1; margin-bottom: 18px; }
+  .intro p { color: var(--line); max-width: 56ch; margin: 0 0 14px; }
+  .intro form { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+  label.field { display: block; font-size: 0.95rem; color: var(--line); margin-bottom: 6px; }
+  input[type=text] {
+    background: var(--ink-deep); color: var(--paper); border: 2px solid var(--dim);
+    padding: 12px 14px; min-width: 260px; border-radius: 3px; font-size: 1.05rem;
+  }
+  input[type=text]::placeholder { color: #5f7ca6; }
+  .btn {
+    background: var(--paper); color: var(--ink-deep); border: 2px solid var(--paper);
+    padding: 12px 22px; font-weight: 700; cursor: pointer; border-radius: 3px;
+  }
+  .btn:hover { background: #fff; }
+  .btn.ghost { background: transparent; color: var(--paper); border-color: var(--dim); }
+  .btn.ghost:hover { border-color: var(--paper); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Diagnostic layout */
+  .diag { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr); gap: 32px; align-items: start; }
+  .schematic { background: rgba(10, 28, 51, 0.7); border: 2px solid var(--line); padding: 8px; }
+  svg { display: block; width: 100%; height: auto; }
+  .mod { cursor: pointer; }
+  .mod rect.body { fill: url(#hatch); stroke: var(--fault); stroke-width: 2.5; stroke-dasharray: 7 5; }
+  .mod text { fill: var(--paper); font-family: var(--head); font-weight: 600; font-size: 17px; pointer-events: none; }
+  .mod text.sub { font-family: var(--mono); font-weight: 400; font-size: 12.5px; fill: var(--fault); }
+  .mod:hover rect.body { stroke-width: 3.5; }
+  .mod.selected rect.body { stroke: var(--focus); stroke-dasharray: none; stroke-width: 4; }
+  .mod.selected text.sub { fill: var(--focus); }
+  .mod.online rect.body { fill: rgba(143, 232, 181, 0.22); stroke: var(--ok); stroke-dasharray: none; }
+  .mod.online text.sub { fill: var(--ok); }
+  .mod:focus-visible { outline: none; }
+  .mod:focus-visible rect.body { stroke: var(--focus); stroke-width: 4.5; }
+  .link { stroke: var(--dim); stroke-width: 2; stroke-dasharray: 3 7; }
+  .link.online { stroke: var(--ok); stroke-dasharray: none; stroke-width: 3; }
+  .arc { fill: none; stroke: var(--grid); stroke-width: 12; stroke-linecap: butt; }
+  .arc.online { stroke: var(--ok); }
+  .core-title { font-family: var(--head); font-weight: 600; font-size: 26px; fill: var(--paper); }
+  .core-sub { font-family: var(--mono); font-size: 14px; fill: var(--fault); }
+  .core-sub.ready { fill: var(--ok); }
+
+  .actions { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .actions .hint { color: var(--dim); font-size: 0.95rem; }
+
+  /* Side panel */
+  .panel { border: 2px solid var(--line); background: rgba(10, 28, 51, 0.85); padding: 22px; min-height: 280px; }
+  .panel h2 { font-size: 1.5rem; margin-bottom: 4px; }
+  .panel .who { color: var(--dim); margin: 0 0 18px; }
+  .panel p { margin: 0 0 14px; color: var(--line); }
+  .panel form { display: flex; flex-direction: column; gap: 10px; }
+  .panel input[type=text] { font-family: var(--mono); font-size: 1.3rem; letter-spacing: 0.15em; min-width: 0; width: 100%; text-transform: uppercase; }
+  .msg { min-height: 1.6em; font-size: 0.97rem; }
+  .msg.err { color: var(--fault); }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 0.9rem; padding: 2px 10px; border: 2px solid var(--ok); color: var(--ok); margin-bottom: 14px; }
+  .fragment { font-family: var(--mono); font-size: 0.95rem; border-left: 4px solid var(--ok); padding: 6px 0 6px 14px; margin: 0 0 12px; color: var(--paper); }
+  .fragment small { display: block; color: var(--dim); font-size: 0.85rem; }
+
+  /* Log */
+  .log-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 18px; }
+  .log-head h2 { font-size: 2rem; }
+  .log-head p { margin: 0; color: var(--line); max-width: 60ch; }
+  .tablewrap { overflow-x: auto; border: 2px solid var(--line); background: rgba(10, 28, 51, 0.88); }
+  table.log { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.97rem; }
+  table.log th { text-align: left; font-weight: 600; color: var(--dim); padding: 12px 16px; border-bottom: 2px solid var(--line); }
+  table.log td { padding: 11px 16px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  table.log td:first-child { white-space: nowrap; color: var(--focus); }
+  table.log td.src { color: var(--dim); white-space: nowrap; }
+  table.log tr.enter { animation: rowin 0.5s ease-out; }
+  @keyframes rowin { from { background: rgba(255, 209, 102, 0.28); } to { background: transparent; } }
+
+  /* Verdict */
+  .verdict { max-width: 880px; }
+  .verdict h2 { font-size: 2rem; margin-bottom: 8px; }
+  .verdict > p { color: var(--line); margin: 0 0 24px; max-width: 60ch; }
+  fieldset { border: 2px solid var(--line); margin: 0 0 24px; padding: 14px 18px 18px; background: rgba(10, 28, 51, 0.85); }
+  legend { font-family: var(--head); font-weight: 600; font-size: 1.2rem; padding: 0 8px; }
+  .opt { display: flex; gap: 12px; align-items: baseline; padding: 8px 4px; cursor: pointer; border-bottom: 1px solid var(--grid); }
+  .opt:last-child { border-bottom: 0; }
+  .opt input { accent-color: var(--focus); width: 18px; height: 18px; flex: none; transform: translateY(3px); }
+  .opt .t { font-family: var(--mono); color: var(--focus); white-space: nowrap; }
+  .opt small { color: var(--dim); }
+  .result { border: 3px solid var(--line); padding: 22px; margin-top: 8px; background: rgba(10, 28, 51, 0.92); }
+  .result.good { border-color: var(--ok); }
+  .result.bad { border-color: var(--fault); }
+  .result h3 { font-size: 1.6rem; margin-bottom: 8px; }
+  .result p { margin: 0 0 12px; color: var(--line); }
+  .scoreline { font-family: var(--mono); color: var(--paper); font-size: 1.05rem; }
+
+  footer { margin-top: 40px; color: #5f7ca6; font-size: 0.85rem; }
+
+  @media (max-width: 900px) {
+    .diag { grid-template-columns: 1fr; }
+    .intro h2 { font-size: 2rem; }
+    body { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    table.log tr.enter { animation: none; }
+  }
+
+/* Enhanced terminal polish */
+body { background-image: radial-gradient(ellipse at 12% 0%, rgba(28,86,132,.35), transparent 42%), linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); }
+.wrap { max-width: 1240px; }
+header.bar { position: relative; padding: 14px 0 16px; }
+header.bar h1 { letter-spacing: .045em; text-transform: uppercase; }
+.intro { max-width: 760px; padding-top: 7vh; }
+.intro h2 { font-size: clamp(2rem, 4.6vw, 3.4rem); letter-spacing: -.025em; }
+.intro p { font-size: 1.02rem; line-height: 1.7; }
+.btn { transition: transform .15s ease, box-shadow .15s ease, background .15s ease; box-shadow: 0 4px 0 rgba(0,0,0,.22); }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 6px 0 rgba(0,0,0,.22); }
+.btn:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(0,0,0,.22); }
+.schematic { box-shadow: 0 18px 50px rgba(0,0,0,.18); }
+.panel { box-shadow: 0 18px 50px rgba(0,0,0,.16); }
+table.log tr:hover { background: rgba(255,209,102,.07); }
+fieldset { border-radius: 5px; }
+.result { border-radius: 5px; }
+.stats { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .wrap { padding: 16px 14px 30px; }
+  header.bar h1 { font-size: 1.25rem; }
+  .stats { gap: 12px; font-size: .8rem; }
+  input[type=text] { min-width: 0; width: 100%; }
+  .intro form > div { width: 100%; }
+  .intro form .btn { width: 100%; }
+  .panel { padding: 16px; }
+  table.log { font-size: .82rem; }
+  table.log th, table.log td { padding: 9px 10px; }
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="bar">
+    <h1>CHRONOS <span style="color:var(--ok);font-size:.72em;letter-spacing:.08em">// TEMPORAL INVESTIGATION TERMINAL</span></h1>
+    <div class="stats" id="stats" hidden>
+      <span>Team <b id="statTeam"></b></span>
+      <span>Online <b id="statOnline">0/5</b></span>
+      <span>Elapsed <b id="statTime">00:00</b></span>
+    </div>
+  </header>
+
+  <!-- Intro -->
+  <section class="screen intro" id="screenIntro">
+    <h2>CHRONOS went offline during the night shift.</h2>
+    <p>Five specialists had access. Five motives remain plausible. One command brought the future to a halt.</p>
+    <p>Investigate all five stations and collect their codes. Restore each damaged module to decrypt the night-shift log. Then compare the evidence against every suspect's statement and submit a reasoned verdict.</p>
+    <form id="introForm">
+      <div>
+        <label class="field" for="teamName">Team name</label>
+        <input type="text" id="teamName" maxlength="28" autocomplete="off" placeholder="Enter your team name" required>
+      </div>
+      <div style="align-self:end"><button class="btn" type="submit">Start investigation</button></div>
+    </form>
+  </section>
+
+  <!-- Diagnostic -->
+  <section class="screen" id="screenDiag" hidden>
+    <div class="diag">
+      <div>
+        <div class="schematic"><svg id="schematic" viewBox="0 0 620 540" role="group" aria-label="CHRONOS module diagram"></svg></div>
+        <div class="actions">
+          <button class="btn" id="decryptBtn" disabled>Decrypt night-shift log</button>
+          <span class="hint" id="decryptHint">Restore all five modules to unlock the log.</span>
+        </div>
+      </div>
+      <aside class="panel" id="panel" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <!-- Log -->
+  <section class="screen" id="screenLog" hidden>
+    <div class="log-head">
+      <div>
+        <h2>RECOVERED EVENT LOG</h2>
+        <p>Recovered from CHRONOS. Compare every entry with what the suspects told you at the stations.</p>
+      </div>
+      <button class="btn" id="toVerdict" hidden>File your verdict</button>
+    </div>
+    <div class="tablewrap">
+      <table class="log">
+        <thead><tr><th>Time</th><th>Source</th><th>Entry</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Verdict -->
+  <section class="screen verdict" id="screenVerdict" hidden>
+    <h2>File your verdict</h2>
+    <p>Identify the saboteur and select the log entry that directly contradicts their statement. Suspicion is not proof.</p>
+    <form id="verdictForm">
+      <fieldset>
+        <legend>Who sabotaged CHRONOS?</legend>
+        <div id="suspectOpts"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Which log entry contradicts their statement?</legend>
+        <div id="evidenceOpts"></div>
+      </fieldset>
+      <div class="actions">
+        <button class="btn" type="submit">Submit verdict</button>
+        <button class="btn ghost" type="button" id="backToLog">Back to log</button>
+        <span class="msg err" id="verdictMsg" role="alert"></span>
+      </div>
+    </form>
+    <div id="result" hidden></div>
+  </section>
+
+  <footer>ORGANISER CONTROLS: Alt+Shift+R resets for the next team. Alt+Shift+U unlocks all modules for testing.</footer>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG: edit station codes, fragments, log and answer here.
+   Codes are not case sensitive; spaces and dashes are ignored.
+   ============================================================ */
+const CONFIG = {
+  culprit: "architect",
+  provingEntries: ["badge-in-architect", "manual-cmd"],
+  suspects: [
+    { id: "mechanist",     name: "The Mechanist",     role: "Mechanics" },
+    { id: "industrialist", name: "The Industrialist", role: "Gears and mechanisms" },
+    { id: "electrician",   name: "The Electrician",   role: "Circuits, sensors and motors" },
+    { id: "automator",     name: "The Automator",     role: "PLC and sequencing" },
+    { id: "architect",     name: "The Architect",     role: "AI" }
+  ],
+  modules: [
+    { id: "mech",  name: "Mechanics",    who: "The Mechanist",     code: "2958",
+      fragment: [["12:10 AM", "Work order WO-2291 issued: dismantle chassis module."],
+                 ["12:15 AM", "Chassis module dismantled."]] },
+    { id: "gear",  name: "Transmission", who: "The Industrialist", code: "10CW",
+      fragment: [["11:50 PM", "Gear module accessed."]] },
+    { id: "power", name: "Power",        who: "The Electrician",   code: "4471",
+      fragment: [["11:42 PM", "Power fluctuation detected. CHRONOS switched to backup power."]] },
+    { id: "auto",  name: "Automation",   who: "The Automator",     code: "0007",
+      fragment: [["12:07 AM", "Lockdown triggered by the emergency signal. No operator input recorded."]] },
+    { id: "core",  name: "AI core",      who: "The Architect",     code: "CORE",
+      fragment: [["11:58 PM", "Manual command received while in autonomous mode."]] }
+  ],
+  log: [
+    { id: "architect-out",    t: "11:30 PM", src: "Door access",  text: "Badge out: The Architect" },
+    { id: "electrician-in",   t: "11:35 PM", src: "Door access",  text: "Badge in, power room: The Electrician" },
+    { id: "breaker",          t: "11:40 PM", src: "Power room",   text: "Breaker panel opened" },
+    { id: "power-dip",        t: "11:42 PM", src: "Power",        text: "Fluctuation detected. CHRONOS on backup power, all systems stable" },
+    { id: "gear-access",      t: "11:50 PM", src: "Transmission", text: "Gear module accessed. Badge: The Industrialist" },
+    { id: "industrialist-out",t: "11:55 PM", src: "Door access",  text: "Badge out: The Industrialist" },
+    { id: "badge-in-architect",t: "11:55 PM", src: "Door access", text: "Badge in: The Architect" },
+    { id: "manual-cmd",       t: "11:58 PM", src: "Terminal 3",   text: "Manual command SUSPEND SAFETY CORE received while in autonomous mode" },
+    { id: "offline",          t: "12:03 AM", src: "CHRONOS",      text: "System offline" },
+    { id: "lockdown",         t: "12:07 AM", src: "Automation",   text: "Lockdown triggered by the emergency signal. No operator input" },
+    { id: "work-order",       t: "12:10 AM", src: "Maintenance",  text: "Work order WO-2291 issued: dismantle chassis module" },
+    { id: "mechanist-in",     t: "12:12 AM", src: "Door access",  text: "Badge in: The Mechanist" },
+    { id: "dismantled",       t: "12:15 AM", src: "Mechanics",    text: "Chassis module dismantled. Badge: The Mechanist" }
+  ],
+  explanation: "The Architect told you they left at 11:30 PM, and they did. But they badged back in at 11:55 PM and Terminal 3 received a manual command to suspend the safety core three minutes later. The power dip, the gear access, the lockdown and the chassis teardown all have explanations that do not involve switching CHRONOS off."
+};
+
+/* ============================================================
+   State
+   ============================================================ */
+const KEY = "chronos-state-v1";
+const $ = (id) => document.getElementById(id);
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let state = load() || { team: "", start: 0, end: 0, online: {}, attempts: 0, screen: "intro" };
+let selected = null;
+let timerHandle = null;
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, keep going */ } }
+const norm = (s) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+const onlineCount = () => CONFIG.modules.filter(m => state.online[m.id]).length;
+const allOnline = () => onlineCount() === CONFIG.modules.length;
+
+/* ============================================================
+   Schematic
+   ============================================================ */
+const SVGNS = "http://www.w3.org/2000/svg";
+const CX = 310, CY = 275, RING = 84, DIST = 205;
+const ANGLES = [-90, -18, 54, 126, 198];
+const pol = (r, deg) => [CX + r * Math.cos(deg * Math.PI / 180), CY + r * Math.sin(deg * Math.PI / 180)];
+
+function arcPath(deg) {
+  const [x1, y1] = pol(RING, deg - 30);
+  const [x2, y2] = pol(RING, deg + 30);
+  return `M${x1.toFixed(1)} ${y1.toFixed(1)} A${RING} ${RING} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
+
+function buildSchematic() {
+  let s = `<defs><pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="10" height="10" fill="rgba(255,122,89,0.08)"/><line x1="0" y1="0" x2="0" y2="10" stroke="rgba(255,122,89,0.35)" stroke-width="3"/></pattern></defs>`;
+  CONFIG.modules.forEach((m, i) => {
+    const [x, y] = pol(DIST, ANGLES[i]);
+    const [ex, ey] = pol(RING + 8, ANGLES[i]);
+    s += `<line class="link" data-link="${m.id}" x1="${ex.toFixed(1)}" y1="${ey.toFixed(1)}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
+  });
+  CONFIG.modules.forEach((m, i) => { s += `<path class="arc" data-arc="${m.id}" d="${arcPath(ANGLES[i])}"/>`; });
+  s += `<circle cx="${CX}" cy="${CY}" r="${RING - 14}" fill="#0a1c33" stroke="#c9d8ee" stroke-width="2"/>
+        <text class="core-title" x="${CX}" y="${CY - 2}" text-anchor="middle">CHRONOS</text>
+        <text class="core-sub" id="coreSub" x="${CX}" y="${CY + 22}" text-anchor="middle">Offline</text>`;
+  CONFIG.modules.forEach((m, i) => {
+    const [x, y] = pol(DIST, ANGLES[i]);
+    s += `<g class="mod" data-id="${m.id}" tabindex="0" role="button" aria-label="${m.name} module">
+            <rect class="body" x="${(x - 76).toFixed(1)}" y="${(y - 31).toFixed(1)}" width="152" height="62" rx="3"/>
+            <text x="${x.toFixed(1)}" y="${(y - 2).toFixed(1)}" text-anchor="middle">${m.name}</text>
+            <text class="sub" data-sub="${m.id}" x="${x.toFixed(1)}" y="${(y + 20).toFixed(1)}" text-anchor="middle">Locked</text>
+          </g>`;
+  });
+  $("schematic").innerHTML = s;
+  document.querySelectorAll(".mod").forEach(g => {
+    g.addEventListener("click", () => select(g.dataset.id));
+    g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(g.dataset.id); } });
+  });
+}
+
+function paint() {
+  CONFIG.modules.forEach(m => {
+    const on = !!state.online[m.id];
+    const g = document.querySelector(`.mod[data-id="${m.id}"]`);
+    g.classList.toggle("online", on);
+    g.classList.toggle("selected", selected === m.id);
+    document.querySelector(`[data-sub="${m.id}"]`).textContent = on ? "Online" : (selected === m.id ? "Enter code" : "Locked");
+    document.querySelector(`[data-link="${m.id}"]`).classList.toggle("online", on);
+    document.querySelector(`[data-arc="${m.id}"]`).classList.toggle("online", on);
+  });
+  const n = onlineCount();
+  $("statOnline").textContent = n + "/5";
+  const sub = $("coreSub");
+  sub.textContent = allOnline() ? "Ready to decrypt" : (n === 0 ? "Offline" : n + " of 5 restored");
+  sub.classList.toggle("ready", allOnline());
+  $("decryptBtn").disabled = !allOnline();
+  $("decryptHint").textContent = allOnline() ? "All modules restored." : "Restore all five modules to unlock the log.";
+}
+
+/* ============================================================
+   Side panel
+   ============================================================ */
+function select(id) { selected = id; paint(); renderPanel(); }
+
+function renderPanel() {
+  const p = $("panel");
+  if (!selected) {
+    p.innerHTML = `<h2>Choose a module</h2><p class="who">Five modules are down.</p>
+      <p>Select a damaged module on the diagram, then enter the code you earned at its station.</p>`;
+    return;
+  }
+  const m = CONFIG.modules.find(x => x.id === selected);
+  if (state.online[m.id]) {
+    p.innerHTML = `<h2>${m.name}</h2><p class="who">Station of ${m.who}</p>
+      <span class="badge">Module online</span>
+      <p>Recovered log fragment:</p>` +
+      m.fragment.map(f => `<p class="fragment"><small>${f[0]}</small>${f[1]}</p>`).join("");
+    return;
+  }
+  p.innerHTML = `<h2>${m.name}</h2><p class="who">Station of ${m.who}</p>
+    <form id="codeForm" autocomplete="off">
+      <label class="field" for="codeInput">Station code</label>
+      <input type="text" id="codeInput" maxlength="12" spellcheck="false" required>
+      <button class="btn" type="submit">Restore module</button>
+      <div class="msg" id="codeMsg" role="alert"></div>
+    </form>`;
+  $("codeInput").focus();
+  $("codeForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (norm($("codeInput").value) === norm(m.code)) {
+      state.online[m.id] = true; save(); paint(); renderPanel();
+    } else {
+      const msg = $("codeMsg");
+      msg.className = "msg err";
+      msg.textContent = "Code rejected. Recheck your station result and try again.";
+      $("codeInput").select();
+    }
+  });
+}
+
+/* ============================================================
+   Screens
+   ============================================================ */
+function show(name) {
+  state.screen = name; save();
+  ["Intro", "Diag", "Log", "Verdict"].forEach(n => { $("screen" + n).hidden = (n.toLowerCase() !== name); });
+  $("stats").hidden = (name === "intro");
+  $("statTeam").textContent = state.team;
+  if (name === "diag") { paint(); renderPanel(); }
+  if (name === "log") revealLog();
+  if (name === "verdict") buildVerdict();
+  window.scrollTo(0, 0);
+}
+
+$("introForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  state.team = $("teamName").value.trim();
+  state.start = Date.now(); state.end = 0; state.attempts = 0; state.online = {};
+  show("diag"); startTimer();
+});
+$("decryptBtn").addEventListener("click", () => show("log"));
+$("toVerdict").addEventListener("click", () => show("verdict"));
+$("backToLog").addEventListener("click", () => show("log"));
+
+/* ---------- Log reveal ---------- */
+let logShown = false;
+function revealLog() {
+  const body = $("logBody");
+  if (logShown) { $("toVerdict").hidden = false; return; }
+  logShown = true;
+  body.innerHTML = "";
+  $("toVerdict").hidden = true;
+  const add = (row) => {
+    const tr = document.createElement("tr");
+    tr.className = "enter";
+    tr.innerHTML = `<td>${row.t}</td><td class="src">${row.src}</td><td>${row.text}</td>`;
+    body.appendChild(tr);
+  };
+  if (reduceMotion || state.end) {
+    CONFIG.log.forEach(add); $("toVerdict").hidden = false; return;
+  }
+  CONFIG.log.forEach((row, i) => setTimeout(() => {
+    add(row);
+    if (i === CONFIG.log.length - 1) $("toVerdict").hidden = false;
+  }, 450 * (i + 1)));
+}
+
+/* ---------- Verdict ---------- */
+function buildVerdict() {
+  $("suspectOpts").innerHTML = CONFIG.suspects.map(s =>
+    `<label class="opt"><input type="radio" name="suspect" value="${s.id}" required><span>${s.name} <small>${s.role}</small></span></label>`).join("");
+  $("evidenceOpts").innerHTML = CONFIG.log.map(r =>
+    `<label class="opt"><input type="radio" name="evidence" value="${r.id}" required><span><span class="t">${r.t}</span> ${r.text}</span></label>`).join("");
+  $("verdictMsg").textContent = "";
+}
+
+$("verdictForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const suspect = document.querySelector('input[name="suspect"]:checked');
+  const evidence = document.querySelector('input[name="evidence"]:checked');
+  if (!suspect || !evidence) { $("verdictMsg").textContent = "Choose a suspect and a log entry."; return; }
+  state.attempts += 1;
+  const res = $("result");
+  res.hidden = false;
+  const rightSuspect = suspect.value === CONFIG.culprit;
+  const rightEvidence = CONFIG.provingEntries.includes(evidence.value);
+  if (rightSuspect && rightEvidence) {
+    state.end = state.end || Date.now(); save(); stopTimer();
+    res.className = "result good";
+    res.innerHTML = `<h3>Case closed</h3><p>${CONFIG.explanation}</p>
+      <p class="scoreline">Team ${esc(state.team)} | Time ${fmt(state.end - state.start)} | Verdicts filed: ${state.attempts}</p>`;
+    $("verdictForm").hidden = true;
+  } else if (rightSuspect) {
+    save();
+    res.className = "result bad";
+    res.innerHTML = `<h3>Right suspect, wrong proof</h3><p>That entry does not contradict their statement. Reread what they said and find the entry that does.</p>
+      <p class="scoreline">Verdicts filed: ${state.attempts}</p>`;
+  } else {
+    save();
+    res.className = "result bad";
+    res.innerHTML = `<h3>Verdict rejected</h3><p>The log does not contradict this suspect's statement. Compare each statement with the log again.</p>
+      <p class="scoreline">Verdicts filed: ${state.attempts}</p>`;
+  }
+  res.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
+});
+
+/* ============================================================
+   Timer and helpers
+   ============================================================ */
+function esc(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function fmt(ms) {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+}
+function tick() { $("statTime").textContent = fmt((state.end || Date.now()) - state.start); }
+function startTimer() { stopTimer(); tick(); if (!state.end) timerHandle = setInterval(tick, 1000); }
+function stopTimer() { if (timerHandle) clearInterval(timerHandle); timerHandle = null; tick(); }
+
+document.addEventListener("keydown", (e) => {
+  if (!(e.altKey && e.shiftKey)) return;
+  if (e.code === "KeyR") {
+    if (confirm("Reset CHRONOS for the next team?")) { try { localStorage.removeItem(KEY); } catch (err) {} location.reload(); }
+  }
+  if (e.code === "KeyU") {
+    CONFIG.modules.forEach(m => state.online[m.id] = true); save();
+    if (state.screen === "diag") { paint(); renderPanel(); }
+  }
+});
+
+/* ============================================================
+   Boot
+   ============================================================ */
+buildSchematic();
+if (state.screen !== "intro" && state.team) {
+  show(state.screen);
+  startTimer();
+} else {
+  show("intro");
+}
+</script>
+</body>
+</html>

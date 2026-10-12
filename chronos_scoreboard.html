@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHRONOS leaderboard</title>
+<style>
+  :root {
+    --ink: #0f2744; --ink-deep: #0a1c33; --grid: #1b3a63; --line: #c9d8ee; --dim: #86a2c9;
+    --paper: #f2f6fc; --fault: #ff7a59; --ok: #8fe8b5; --focus: #ffd166;
+    --head: "Futura", "Century Gothic", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --text: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background-color: var(--ink);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px; color: var(--paper); font-family: var(--text); font-size: 17px; line-height: 1.5;
+  }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+  button, input { font: inherit; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 24px 48px; }
+  header.bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px;
+    border-bottom: 2px solid var(--line); padding-bottom: 12px; margin-bottom: 24px; }
+  h1 { font-family: var(--head); font-weight: 600; font-size: 1.8rem; margin: 0; }
+  .btn { background: var(--paper); color: var(--ink-deep); border: 2px solid var(--paper); padding: 10px 18px; font-weight: 700; cursor: pointer; border-radius: 3px; }
+  .btn:hover { background: #fff; }
+  .btn.ghost { background: transparent; color: var(--paper); border-color: var(--dim); }
+  .btn.ghost:hover { border-color: var(--paper); }
+  .btn.small { padding: 4px 10px; font-size: 0.85rem; }
+  form.entry { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px; align-items: end;
+    border: 2px solid var(--line); background: rgba(10, 28, 51, 0.85); padding: 18px; margin-bottom: 8px; }
+  label { display: block; font-size: 0.9rem; color: var(--line); margin-bottom: 4px; }
+  input { width: 100%; background: var(--ink-deep); color: var(--paper); border: 2px solid var(--dim); padding: 10px 12px; border-radius: 3px; }
+  input::placeholder { color: #5f7ca6; }
+  .rule { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; color: var(--dim); font-size: 0.92rem; margin: 0 0 24px; }
+  .rule input { width: 70px; padding: 4px 8px; display: inline-block; }
+  .msg { color: var(--fault); min-height: 1.5em; margin: 0 0 8px; }
+  .tablewrap { overflow-x: auto; border: 2px solid var(--line); background: rgba(10, 28, 51, 0.88); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-weight: 600; color: var(--dim); padding: 12px 16px; border-bottom: 2px solid var(--line); font-size: 0.95rem; }
+  td { padding: 14px 16px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+  td.num, th.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
+  td.rank { font-family: var(--head); font-size: 1.4rem; width: 70px; border-left: 8px solid transparent; }
+  tr.r1 td.rank { border-left-color: var(--focus); color: var(--focus); }
+  tr.r2 td.rank { border-left-color: var(--line); }
+  tr.r3 td.rank { border-left-color: var(--fault); }
+  td.team { font-family: var(--head); font-size: 1.25rem; }
+  td.total { font-weight: 700; color: var(--ok); font-size: 1.2rem; }
+  td.empty { text-align: center; color: var(--dim); padding: 36px; }
+  .acts { display: flex; gap: 6px; justify-content: flex-end; }
+  body.present form.entry, body.present .rule, body.present .msg, body.present .acts-col, body.present .acts-cell { display: none; }
+  body.present { font-size: 22px; }
+  body.present td { padding: 20px 18px; }
+  body.present td.team { font-size: 1.7rem; }
+  footer { margin-top: 28px; color: #5f7ca6; font-size: 0.85rem; }
+  @media (max-width: 800px) { form.entry { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <h1>CHRONOS leaderboard</h1>
+    <button class="btn ghost" id="presentBtn" type="button">Presentation mode</button>
+  </header>
+
+  <form class="entry" id="entryForm" autocomplete="off">
+    <div><label for="fName">Team name</label><input id="fName" type="text" maxlength="30" required></div>
+    <div><label for="fTime">Stopwatch time (mm:ss)</label><input id="fTime" type="text" placeholder="48:30" required></div>
+    <div><label for="fWrong">Wrong verdicts</label><input id="fWrong" type="number" min="0" value="0" required></div>
+    <div><label for="fGive">Codes given away</label><input id="fGive" type="number" min="0" max="5" value="0" required></div>
+    <div><button class="btn" type="submit" id="addBtn">Add team</button></div>
+  </form>
+  <div class="msg" id="msg" role="alert"></div>
+  <div class="rule">
+    <span>Penalty per wrong verdict or given-away code:</span>
+    <span><input id="penalty" type="number" min="0" step="0.5" value="2" aria-label="Penalty minutes"> minutes</span>
+    <span>Ranking uses total time. Ties go to fewer wrong verdicts, then faster stopwatch time.</span>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Rank</th><th>Team</th><th class="num">Stopwatch</th><th class="num">Penalties</th><th class="num">Total</th><th class="acts-col"></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <footer>Saved in this browser. Press Esc to leave presentation mode. Data is cleared with the button below.
+    <button class="btn ghost small" id="clearBtn" type="button">Clear all teams</button></footer>
+</div>
+
+<script>
+const KEY = "chronos-scoreboard-v1";
+const $ = (id) => document.getElementById(id);
+let data = load() || { penalty: 2, teams: [] };
+let editing = null;
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* keep going without storage */ } }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function parseTime(s) {
+  s = s.trim();
+  const m = s.match(/^(\d{1,3})(?::([0-5]?\d))?$/);
+  if (!m) return null;
+  return (parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0));
+}
+function fmt(sec) {
+  sec = Math.round(sec);
+  return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
+}
+const penaltySec = (t) => (t.wrong + t.give) * data.penalty * 60;
+const total = (t) => t.time + penaltySec(t);
+
+function render() {
+  $("penalty").value = data.penalty;
+  const sorted = data.teams.slice().sort((a, b) => total(a) - total(b) || a.wrong - b.wrong || a.time - b.time);
+  if (!sorted.length) { $("rows").innerHTML = `<tr><td class="empty" colspan="6">No teams yet. Add the first result above.</td></tr>`; return; }
+  $("rows").innerHTML = sorted.map((t, i) => {
+    const pen = penaltySec(t);
+    return `<tr class="r${i + 1}">
+      <td class="rank">${i + 1}</td>
+      <td class="team">${esc(t.name)}</td>
+      <td class="num">${fmt(t.time)}</td>
+      <td class="num">${pen ? "+" + fmt(pen) + " (" + (t.wrong + t.give) + ")" : "0"}</td>
+      <td class="num total">${fmt(total(t))}</td>
+      <td class="acts-cell"><div class="acts"><button class="btn ghost small" data-edit="${t.id}" type="button">Edit</button><button class="btn ghost small" data-del="${t.id}" type="button">Remove</button></div></td>
+    </tr>`;
+  }).join("");
+  document.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => startEdit(b.dataset.edit)));
+  document.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => {
+    const t = data.teams.find(x => x.id === b.dataset.del);
+    if (t && confirm("Remove " + t.name + "?")) { data.teams = data.teams.filter(x => x.id !== t.id); save(); render(); }
+  }));
+}
+
+function startEdit(id) {
+  const t = data.teams.find(x => x.id === id); if (!t) return;
+  editing = id;
+  $("fName").value = t.name; $("fTime").value = fmt(t.time); $("fWrong").value = t.wrong; $("fGive").value = t.give;
+  $("addBtn").textContent = "Save changes";
+  $("fName").focus(); window.scrollTo(0, 0);
+}
+
+$("entryForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("fName").value.trim();
+  const time = parseTime($("fTime").value);
+  const wrong = parseInt($("fWrong").value, 10), give = parseInt($("fGive").value, 10);
+  const msg = $("msg"); msg.textContent = "";
+  if (!name) { msg.textContent = "Enter a team name."; return; }
+  if (time === null) { msg.textContent = "Time must look like 48:30 or 48."; return; }
+  if (isNaN(wrong) || wrong < 0 || isNaN(give) || give < 0) { msg.textContent = "Penalty counts must be zero or more."; return; }
+  if (editing) {
+    const t = data.teams.find(x => x.id === editing);
+    Object.assign(t, { name, time, wrong, give }); editing = null; $("addBtn").textContent = "Add team";
+  } else {
+    if (data.teams.some(x => x.name.toLowerCase() === name.toLowerCase())) { msg.textContent = "That team is already on the board. Use Edit to change it."; return; }
+    data.teams.push({ id: String(Date.now()) + Math.random().toString(36).slice(2, 6), name, time, wrong, give });
+  }
+  save(); render(); $("entryForm").reset(); $("fWrong").value = 0; $("fGive").value = 0; $("fName").focus();
+});
+
+$("penalty").addEventListener("change", () => {
+  const v = parseFloat($("penalty").value);
+  data.penalty = isNaN(v) || v < 0 ? 2 : v; save(); render();
+});
+$("presentBtn").addEventListener("click", () => {
+  document.body.classList.toggle("present");
+  $("presentBtn").textContent = document.body.classList.contains("present") ? "Exit presentation mode" : "Presentation mode";
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.body.classList.contains("present")) $("presentBtn").click();
+});
+$("clearBtn").addEventListener("click", () => {
+  if (confirm("Clear every team from the leaderboard?")) { data.teams = []; save(); render(); }
+});
+render();
+</script>
+</body>
+</html>
